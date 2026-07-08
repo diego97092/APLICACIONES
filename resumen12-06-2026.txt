@@ -1,0 +1,664 @@
+# MARKETPLACE HUB V2 – RESUMEN ACTUAL DEL PROYECTO
+
+## OBJETIVO GENERAL
+
+Crear un CRM propio para administrar múltiples cuentas de Facebook Marketplace desde una sola plataforma centralizada.
+
+La arquitectura actual es:
+
+Facebook Messenger Marketplace
+↓
+Extensión Chrome
+↓
+FastAPI
+↓
+SQLite
+↓
+CRM Marketplace Hub V2
+
+Objetivo: manejar 25, 50 y hasta 100 perfiles sin Playwright, sin CDP, sin puertos debug, sin Telegram como interfaz principal y sin navegadores monitoreados de forma pesada.
+
+---
+
+# UBICACIÓN DEL PROYECTO
+
+Ruta principal:
+
+```text
+C:\Users\Viviana\Desktop\Poyecto final crm
+```
+
+Estructura actual:
+
+```text
+C:\Users\Viviana\Desktop\Poyecto final crm
+
+├── backend
+│   ├── main.py
+│   ├── marketplace_hub.db
+│   └── __init__.py
+│
+├── frontend
+│
+├── venv
+│
+├── borrar_chat_alexandra.py
+├── borrar_chat_messenger.py
+├── limpiar_chats_prueba_bandeja.py
+│
+└── extensiones pruebas
+```
+
+Comando para correr backend:
+
+```bash
+uvicorn backend.main:app --reload
+```
+
+CRM:
+
+```text
+http://127.0.0.1:8000
+```
+
+Swagger:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+---
+
+# TECNOLOGÍAS
+
+Backend:
+
+* Python 3.13
+* FastAPI
+
+Base de datos:
+
+* SQLite
+
+Frontend:
+
+* HTML integrado dentro de FastAPI
+
+Extensión:
+
+* Chrome Extension
+* Content script
+* Popup
+* Comunicación con backend local por fetch a `http://127.0.0.1:8000`
+
+---
+
+# PERFILES PILOTO
+
+Actualmente:
+
+* Diego
+* slot
+
+---
+
+# TABLAS PRINCIPALES
+
+```sql
+perfiles
+productos
+clientes
+conversaciones
+mensajes
+notificaciones
+configuraciones
+mensajes_pendientes
+solicitudes_carga_chat
+acciones_extension
+```
+
+Campos importantes en `conversaciones`:
+
+```sql
+facebook_chat_id
+enlace_chat
+orden_bandeja
+fecha_sync_bandeja
+tiempo_messenger
+```
+
+Campos importantes en `mensajes`:
+
+```sql
+origen_hash
+fecha_original
+orden_chat
+```
+
+---
+
+# ENDPOINTS IMPORTANTES
+
+Backend actual usa principalmente:
+
+```text
+GET  /api/health
+POST /api/sincronizar_bandeja
+POST /api/nuevo_mensaje
+GET  /api/solicitudes_carga_chat
+POST /api/marcar_solicitud_carga
+GET  /api/acciones_extension
+POST /api/marcar_accion_extension
+GET  /api/mensajes_pendientes
+POST /api/marcar_mensaje_enviado
+```
+
+También se agregaron alias para evitar errores 404 en algunas versiones:
+
+```text
+POST /api/sync_bandeja
+POST /api/bandeja/sync
+POST /api/conversaciones/sync_bandeja
+```
+
+---
+
+# FASE 1 – CRM BASE
+
+Estado: completada.
+
+Implementado:
+
+* Dashboard
+* Perfiles
+* Productos
+* Clientes
+* Conversaciones
+* Historial
+* Estados
+* API
+* SQLite
+
+---
+
+# FASE 2 – HISTORIAL INTELIGENTE
+
+Estado: completada parcialmente funcional.
+
+Implementado:
+
+* Facebook Chat ID
+* Captura de mensajes recientes
+* Captura de historial visible
+* Historial ordenado
+* Evitar duplicados
+* Recuperación correcta de mensajes
+* Guardado por `origen_hash`
+* Orden por `orden_chat`
+
+Problemas actuales:
+
+* A veces captura basura de Messenger:
+
+  * Marketplace
+  * View more items
+  * No longer available
+  * avisos de Meta
+  * fechas sueltas como mensajes
+* A veces captura inicio y final del chat, pero se salta mensajes del medio.
+* Falta mejorar scroll suave del historial para capturar todo.
+
+---
+
+# FASE 3A – BANDEJA INTELIGENTE
+
+Estado: muy avanzada.
+
+Implementado:
+
+* Sincronizar bandeja Marketplace
+* Primeras conversaciones visibles
+* Orden tipo Messenger
+* Tiempo Messenger real
+* Estados:
+
+  * Pendiente
+  * Respondido
+  * Cliente caliente
+  * Venta
+  * Silenciado
+* Etiqueta Responder
+* Tiempo Messenger tipo:
+
+  * 1 h
+  * 2 h
+  * 19 h
+  * 1 sem
+  * 2 sem
+  * 3 sem
+
+Problemas corregidos:
+
+* Meta AI
+* Facebook Marketplace Assistant
+* Chats basura
+* Conversaciones falsas
+* Parser incorrecto
+* `Messenger | Facebook` reemplazando nombres de clientes
+
+Problema actual:
+
+* La extensión debe mantenerse siempre dentro del cajón Messenger Marketplace.
+* No debe ir nunca a `facebook.com/marketplace` ni tocar Marketplace general de publicaciones.
+
+---
+
+# FASE 3B – EXTENSIÓN CHROME
+
+Estado: funcional pero necesita reconstrucción ordenada.
+
+Versiones trabajadas:
+
+```text
+V0.1 a V1.3
+3B.1 a 3B.14
+```
+
+Versiones importantes:
+
+* 3B.10: corrigió no volver a hacer click en Marketplace cuando ya estaba dentro del cajón.
+* 3B.12: corrigió que el cliente no se cambiara por `Messenger | Facebook`.
+* 3B.13: fue la versión más estable antes de intentar el ajuste grande.
+* 3B.14: no quedó bien porque volvió a confundir Marketplace mensajes con Marketplace publicaciones.
+
+Conclusión:
+
+La base buena es 3B.13 / 3B.12.
+No se debe seguir desde 3B.14 sin revisar, porque dañó navegación.
+
+---
+
+# FLUJO QUE YA FUNCIONABA BIEN
+
+Desde Facebook o Messenger:
+
+```text
+Extensión encendida
+↓
+Espera 5 segundos
+↓
+Entra a Messenger
+↓
+Detecta cajón Marketplace dentro de Messenger
+↓
+Si NO está dentro, hace click en Marketplace lateral
+↓
+Si YA está dentro, no vuelve a hacer click
+↓
+Captura bandeja Marketplace visible
+↓
+Abre primer chat
+↓
+Captura historial
+↓
+Sincroniza CRM
+```
+
+Importante:
+
+El cajón correcto es este:
+
+```text
+facebook.com/messages
+→ columna izquierda
+→ item llamado Marketplace
+```
+
+No se debe abrir:
+
+```text
+facebook.com/marketplace
+```
+
+---
+
+# ERROR PRINCIPAL ACTUAL
+
+Cuando desde el CRM se selecciona un chat que NO está visible en la bandeja Marketplace, la extensión dice:
+
+```text
+No encontré ese chat visible en el cajón Marketplace
+```
+
+Debe hacer scroll interno.
+
+Flujo deseado:
+
+```text
+CRM selecciona Alexandra / Carla / Liliana / OC
+↓
+Backend crea acción para extensión
+↓
+Extensión recibe acción
+↓
+Valida que está en cajón Marketplace
+↓
+Busca chat visible
+↓
+Si no está visible:
+   hace scroll hacia arriba o hacia abajo dentro de la lista Marketplace
+   vuelve a buscar
+   repite
+↓
+Cuando lo encuentra:
+   click en chat
+   espera carga
+   captura historial
+   marca acción como completada
+```
+
+Este es el ajuste más importante a corregir ahora.
+
+---
+
+# BOTÓN CARGAR MÁS CONVERSACIONES
+
+Se agregó botón abajo de la lista del CRM:
+
+```text
+Cargar más conversaciones
+```
+
+Objetivo:
+
+```text
+Extensión hace scroll hacia abajo en el cajón Marketplace
+Captura chats antiguos visibles
+Los envía al CRM
+Si luego se abre uno de esos chats, captura historial igual
+```
+
+Problema pendiente:
+
+* Debe trabajar solo en el cajón Marketplace Messenger.
+* No debe cambiar el orden raro de la bandeja.
+* Debe conservar los chats ya capturados y agregar nuevos.
+
+---
+
+# CARGA DE HISTORIAL DESDE CRM
+
+Antes existían botones:
+
+```text
+Cargar chat
+Cargar historial completo
+```
+
+Ahora se decidió que deberían desaparecer.
+
+Motivo:
+
+Cuando se selecciona un chat desde el CRM, la extensión debería abrirlo y capturar historial automáticamente.
+
+Nuevo comportamiento deseado:
+
+```text
+Click en conversación del CRM
+↓
+CRM muestra animación:
+   Abriendo chat en Messenger...
+   Buscando conversación...
+   Sincronizando historial...
+↓
+Extensión abre chat
+↓
+Captura historial
+↓
+CRM muestra mensajes
+```
+
+---
+
+# ANIMACIÓN DE CARGA
+
+Ya se implementó visualmente en el CRM.
+
+Debe aparecer cuando:
+
+* Se selecciona un chat sin historial.
+* La extensión está buscando ese chat en Messenger.
+* La extensión está capturando historial.
+
+Texto sugerido:
+
+```text
+Abriendo chat en Messenger...
+La extensión está buscando este cliente en el cajón Marketplace,
+abriendo el chat y capturando el historial automáticamente.
+
+1. Buscando conversación en Marketplace
+2. Abriendo chat seleccionado
+3. Sincronizando historial
+```
+
+---
+
+# VISTA DEL CHAT EN CRM
+
+Problema actual:
+
+Los mensajes se ven en cajones muy grandes.
+
+Deseado:
+
+Vista tipo Messenger:
+
+* Cliente a la izquierda
+* Tú a la derecha
+* Burbuja pequeña
+* Texto limpio
+* Hora debajo
+* Sin cajas enormes
+* Sin basura del sistema
+
+Ejemplo:
+
+```text
+Cliente
+25 millones negociables
+DJI Agras
+227 horas de vuelo
+20 mar. 2026, 15:18
+
+
+                         Tú
+                         Cuál es el precio y qué marca es
+                         Cuánto uso tiene
+                         20 mar. 2026, 15:20
+```
+
+---
+
+# BASURA QUE DEBE FILTRARSE DEL HISTORIAL
+
+No guardar como mensajes:
+
+```text
+Marketplace
+View buyer
+More options
+View more items
+No longer available
+Facebook Marketplace Assistant
+Meta AI
+Con el objetivo de identificar y reducir las estafas...
+Este mensaje se envió...
+Messenger | Facebook
+Enviar una respuesta rápida
+Sí, ¿estás interesado?
+Lo estoy mirando. Te avisaré.
+Lo sentimos, no está disponible.
+```
+
+Guardar solo:
+
+* Mensajes reales del cliente.
+* Mensajes reales enviados por nosotros.
+* Fecha/hora si aparece.
+* Producto/precio solo como datos de conversación, no como mensajes repetidos.
+
+---
+
+# RIESGO DE BLOQUEO
+
+Bajo actualmente porque:
+
+* No responde automáticamente.
+* No publica automáticamente.
+* No hace clics masivos.
+* No usa Playwright.
+* No usa CDP.
+* No usa puertos Debug.
+* Solo lee información visible.
+* Envía datos a localhost.
+* Las acciones son similares a manejo manual del usuario.
+
+---
+
+# ESTADO REAL DEL PROYECTO
+
+## Fase 1
+
+100%
+
+## Fase 2
+
+85%
+
+Falta limpiar mejor historial y capturar todo sin saltarse mensajes.
+
+## Fase 3A
+
+95%
+
+Bandeja inteligente funciona, pero debe estabilizarse con extensión.
+
+## Fase 3B
+
+65%
+
+La extensión es la base de todo.
+Funciona, pero hay que estabilizarla sin volver a romper navegación.
+
+## Fase 4
+
+0%
+
+Responder desde CRM hacia Messenger.
+
+---
+
+# LO QUE FALTA HACER AHORA
+
+Prioridad 1:
+
+Reconstruir o ajustar extensión desde la base 3B.13, no desde 3B.14.
+
+Objetivo inmediato:
+
+```text
+Mantener navegación buena
++
+agregar búsqueda con scroll real para chats no visibles
+```
+
+Prioridad 2:
+
+Unificar backend con la versión compatible correcta.
+
+Recomendación:
+
+Volver a un `main.py` estable tipo 3B.13 o 3B.12 y solo agregar endpoints necesarios, sin tocar navegación de extensión.
+
+Prioridad 3:
+
+Eliminar botones viejos de carga manual.
+
+Prioridad 4:
+
+Mejorar captura del historial:
+
+```text
+scroll suave
+captura por pasos
+sin saltarse el medio
+deduplicación
+filtros de basura
+```
+
+Prioridad 5:
+
+Vista tipo Messenger.
+
+Prioridad 6:
+
+Responder desde CRM.
+
+---
+
+# RECOMENDACIÓN TÉCNICA PARA CONTINUAR
+
+No seguir parchando muchas versiones encima.
+
+Hacer una versión nueva, pero basada en la última extensión que sí funcionaba:
+
+```text
+marketplace_hub_v2_extension_3B13_CLEAN
+```
+
+Crear:
+
+```text
+3B.15_STABLE_SCROLL
+```
+
+Reglas de esa versión:
+
+1. Prohibido navegar a `facebook.com/marketplace`.
+2. Solo trabajar en `facebook.com/messages`.
+3. Detectar si está en cajón Marketplace.
+4. Si ya está en cajón Marketplace, no volver a hacer click.
+5. Si el chat está visible, abrirlo.
+6. Si no está visible, hacer scroll interno por la lista Marketplace hasta encontrarlo.
+7. Capturar historial.
+8. No tocar la lógica que ya funcionaba.
+9. Logs claros en popup:
+
+   * cajón Marketplace detectado
+   * buscando chat visible
+   * scroll arriba
+   * scroll abajo
+   * chat encontrado
+   * historial enviado
+
+---
+
+# CONCLUSIÓN
+
+El proyecto avanzó bastante.
+La base ya existe: CRM + backend + SQLite + extensión.
+
+Pero la clave absoluta del proyecto es la extensión.
+
+Antes de avanzar a responder desde CRM, se debe dejar estable:
+
+```text
+Messenger → cajón Marketplace → bandeja → abrir cualquier chat desde CRM con scroll → capturar historial limpio
+```
+
+Cuando eso quede estable, ya se puede pasar a:
+
+```text
+CRM → escribir respuesta → extensión → Messenger → enviar mensaje
+```
