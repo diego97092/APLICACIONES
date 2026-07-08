@@ -1,2 +1,1 @@
-# APLICACIONES
-MATERIAL PLATZI
+aplicaciones
